@@ -83,11 +83,4 @@ Clarify the criteria for differentiating between moderate and extreme heat-relat
 
 Indicate the scripts used to generate figures included in your manuscript, such as `Figure_1a-c.R`, `Figure_1d.R`, `Figure_2.R`, and `Figure_3.R`, and describe how to interpret these visualizations.
 
-## Contributing
-
-Encourage contributions by outlining guidelines for reporting issues, suggesting features, or submitting pull requests. Including a `CONTRIBUTING.md` file can provide detailed instructions.
-
-## License
-
-Specify the licensing terms under which your project is distributed, ensuring clarity on usage and distribution rights.
 
