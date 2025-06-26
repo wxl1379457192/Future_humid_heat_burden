@@ -1,7 +1,7 @@
 rm(list = ls())
 gc()
 ###########################################
-setwd("D:/ATtest/Europe_version2")
+setwd("D:/ATtest/Europe_version3")
 library(dlnm)
 library(splines)
 library(ggplot2)
@@ -10,14 +10,14 @@ library(patchwork)
 library(zoo)
 library(Epi)
 library(data.table)
-outdir = "Figure_0721"
+outdir = "Figures"
 if (dir.exists(outdir)){
   print("Output dir has existed!")
 }else{
   dir.create(outdir)
 }
 indir = "Input_model_data"
-pop = fread(file.path(indir,"Aux_pop_data.csv"))
+pop = fread(file.path("D:/ATtest/Europe_version2",indir,"Aux_pop_data_V2.csv"))
 modeldir = "Model"
 filter_geo <- function(geo) {
   # 对 geo 字段进行排序，确保最长的代码在前面
@@ -45,7 +45,6 @@ dfex = function(data,modelname){
   data = data[Year>=2010&Year<=2019,]
   lag <- 4
   lagnk <-2
-  data$death_rate[which(data$death_rate==0)]=0.000001
   data$age = as.factor(data$age)
   data$gender_group = paste(data$geo,data$Year)
   
@@ -71,20 +70,19 @@ dfex = function(data,modelname){
   return(df)
 }
 
-indata = fread(file.path(indir,paste0("Input_data_window14.csv")))
+indata = fread(file.path(indir,paste0("Input_data_all_v2.csv")))
 filter_list<- filter_geo(indata$geo)
-
 pop = pop[age_group!="TOTAL",]
 indata= indata[indata$geo %in% filter_list, ]
 indata =indata[age!="TOTAL",]
-indata = indata[complete.cases(indata),]
 indata = merge(indata,pop,
                by.x = c("Year","geo","age"),
                by.y = c("Year","geo","age_group"))
-indata$death_rate = indata$death/indata$pop*10000
+indata = indata[complete.cases(indata),]
+indata = indata[pop>0]
 
 df1 = do.call(rbind,lapply(split(indata,indata$age),function(data){
-  modelname = paste0(modeldir,"/stratamodel_win14_",data$age[1],"_ns_hum95th.rds")
+  modelname = paste0(modeldir,"/stratamodel_",data$age[1],"_ns_hum.rds")
   return(dfex(data,modelname))
 }))
 
@@ -96,7 +94,7 @@ g = ggplot(df1) +
   theme_bw() +
   scale_x_continuous(expand = c(0,0))+
   geom_hline(yintercept = 1, linetype = "dashed", color = "grey40",linewidth = 0.4) + 
- # geom_hline(yintercept = 1.1, linetype = "dashed", color = "grey40") + 
+  # geom_hline(yintercept = 1.1, linetype = "dashed", color = "grey40") + 
   #scale_y_continuous(expand = c(0,0),limits=c(0.70,1.5))+
   theme(strip.background = element_blank(),
         panel.grid = element_blank(),
@@ -119,7 +117,6 @@ dhex = function(data,model){
   data$death_rate[which(data$death_rate==0)]=0.000001
   data$age = as.factor(data$age)
   data$gender_group = paste(data$geo,data$Year)
-  
   model <-  readRDS(model)
   summary_model <- summary(model)
   
@@ -141,24 +138,22 @@ dhex = function(data,model){
   coefd$label =unique(data$age)
   return(coefd)
 }
-indata = fread(file.path(indir,paste0("Input_data_window14.csv")))
-filter_list<- filter_geo(indata$geo)
-
-pop = pop[age_group!="TOTAL",]
-indata= indata[indata$geo %in% filter_list, ]
 indata =indata[age!="TOTAL",]
-indata = indata[complete.cases(indata),]
-indata = merge(indata,pop,
-               by.x = c("Year","geo","age"),
-               by.y = c("Year","geo","age_group"))
-indata$death_rate = indata$death/indata$pop*10000
-
 RR = do.call(rbind,lapply(split(indata,indata$age),function(data){
-  modelname = paste0(modeldir,"/stratamodel_win",data$window[1],"_",data$age[1],"_ns_hum95th.rds")
+  modelname = paste0(modeldir,"/stratamodel_",data$age[1],"_ns_hum.rds")
   print(modelname)
   k = dhex(data,modelname)
   return(k)
 }))
+
+nsample = do.call(rbind,lapply(split(indata,indata$age),function(data){
+  modelname = paste0(modeldir,"/stratamodel_",data$age[1],"_ns_hum.rds")
+  model <-  readRDS(modelname)
+  nobs = nobs(model)
+  return(data.frame(age = unique(data$age),samples = nobs))
+}))
+
+
 k = lapply(split(RR,RR$day),function(rd){
   do.call(rbind,lapply(c("DD","DN","DA"),function(k){
     rdd = subset(rd, grepl(k, var))
@@ -173,27 +168,31 @@ df$RR_lower = (exp(df$lower)-1) *100
 df$RR_upper = (exp(df$upper)-1) *100
 df$dn = substring(df$var,2,3)
 df$xlab = paste(df$label,":", df$dn)
-#df$RR[df$RR<0] = 
-df$day <- factor(df$day, levels = c("1 day", "2-3 days", ">3 days"))
-df$con = substring(df$var,1,1)
-df$con = ifelse(df$con=="C","Consecutive","Non-consecutive")
+
 df$risk = ifelse(df$RR>0,"Increase","Decrease")
+df$con = substring(df$var,1,1)
+
 library(ggalt)
 library(ggtext)
 library(ggplot2)
-df <- df[order(df$day), ]
+
 df$dn <- factor(df$dn, levels = c("DD", "DN", "DA"))
-g2b = ggplot(df, aes(x = dn, y = RR, fill = risk, alpha = day)) +
+df$day = factor(df$day,levels = c("1 day","2-3 days",">3 days"))
+df$con <- factor(df$con)
+df$label <- factor(df$label)
+df$con = ifelse(df$con=="C","Consecutive","Non-consecutive")
+df$RR[is.na(df$RR)] <- 0
+g2b =ggplot(df, aes(x = dn, y = RR, fill = risk, alpha = day)) +
   scale_fill_manual(values = c("#4f3b21", "#CF221F")) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.8) +  # Bar chart with dodge
   theme_bw() +
+  facet_wrap(~ con + label, scales = "free_y", ncol = 3)+
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50", linewidth = 0.1) + 
-  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.8) +  # Bar chart with dodge
   geom_errorbar(aes(ymin = RR_lower, ymax = RR_upper), 
                 width = 0.2,  # Adjust the width of error bars
-                position = position_dodge(0.8),  # Ensure the error bars match the bar positions
+                position = position_dodge(width = 0.8),  # Ensure the error bars match the bar positions
                 size = 0.3,color = "black") +  # Set error bar color
   scale_alpha_manual(values = c(0.2, 0.6, 1)) +
-  facet_grid(con ~ label) +
   theme(
     panel.grid = element_blank(),
     axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5),
@@ -216,10 +215,7 @@ library(patchwork)
 
 #combined_plot <- g2a / g2b + plot_layout(guides = 'collect',heights = c(3, 1)) & 
 #  theme(legend.position="bottom")
-
 ggsave(paste0(outdir,"/fig1b.pdf"),g2b, width=14.5, height=10, units="cm", scale=1)
-
-
 #######################################
 #######################heat-lag map##############################
 conex = function(data,model){
@@ -238,7 +234,7 @@ conex = function(data,model){
                  group = data$gender_group)
   
   model <-  readRDS(model)
-
+  
   pred.humidex= crosspred(cb, model,bylag=0.2)
   df <- data.frame(pred.humidex$matRRfit)
   df$Humidex = rownames(df)
@@ -255,14 +251,14 @@ conex = function(data,model){
 }
 
 lagdata = do.call(rbind,lapply(split(indata,indata$age),function(data){
-  modelname = paste0(modeldir,"/stratamodel_win",data$window[1],"_",data$age[1],"_ns_hum95th.rds")
+  modelname = paste0(modeldir,"/stratamodel_",data$age[1],"_ns_hum.rds")
   print(modelname)
   k = conex(data,modelname)
   return(k)
 }))
 lagdata$RR = lagdata$RR
 g1 = ggplot(lagdata, aes(x = Humidex, y =as.numeric(variable),
-                        z = RR)) + 
+                         z = RR)) + 
   geom_tile(aes(fill = RR),show.legend = T)+
   facet_grid(age~.) +
   scale_fill_gradient2(low = "#082567",mid="#f2f5f9",high ="#DA0303",

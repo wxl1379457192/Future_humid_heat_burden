@@ -1,7 +1,9 @@
 rm(list = ls())
 gc()
+
+
 ###########################################
-setwd("D:/ATtest/Europe_version2")
+setwd("D:/ATtest/Europe_version3")
 library(dlnm)
 library(splines)
 library(ggplot2)
@@ -11,155 +13,34 @@ library(zoo)
 library(Epi)
 library(data.table)
 modeldir = "Model"
-outdir = "Figure"
+outdir = "Figures"
 if (dir.exists(outdir)){
   print("Output dir has existed!")
 }else{
   dir.create(outdir)
 }
-
+pop = fread("D:/ATtest/Europe_version2/Input_model_data/Aux_pop_data_V2.csv")
 indir = "Input_model_data"
-pop = fread(file.path(indir,"Aux_pop_data.csv"))
-# 定义一个函数来筛选 geo 字段
 filter_geo <- function(geo) {
-  # 对 geo 字段进行排序，确保最长的代码在前面
   geo <- sort(unique(geo), decreasing = T)
-  
-  # 初始化一个向量来存储最终的结果
   final_geo <- character(0)
-  
-  # 遍历 geo 字段中的每个元素
   for (g in geo) {
-    #print(g)
-    # 检查当前元素是否是 final_geo 中任何元素的子字符串
     if (!any(grepl(g, final_geo))) {
-      # 如果不是，将其添加到 final_geo 中
       final_geo <- c(final_geo, g)
     }
   }
-  
-  # 返回筛选后的结果
   return(final_geo)
 }
-
-modelval = function(d1){
-  lag <- 4
-  lagnk <-2
-  cb= crossbasis(d1$Hum,
-                 lag=lag,
-                 argvar = list(fun="ns",knots =  quantile(data$Hum,c(80)/100,na.rm=T), 
-                               Boundary.knots = range(data$Hum,na.rm=T)),
-                 arglag= list(knots = logknots(lag, lagnk)),
-                 group = d1$gender_group)
-  
-  CDD = onebasis(d1$CHD_95th,fun="strata",breaks=c(1,2,4))
-  CDN = onebasis(d1$CHN_95th,fun="strata",breaks=c(1,2,4))
-  CDA = onebasis(d1$CH_95th,fun="strata",breaks=c(1,2,4))
-  UDD = onebasis(d1$Heatday_95th-d1$CHD_95th,fun="strata",breaks=c(1,2,4))
-  UDN = onebasis(d1$Heatnight_95th - d1$CHN_95th,fun="strata",breaks=c(1,2,4))
-  UDA = onebasis(d1$Heatall_95th - d1$CH_95th,fun="strata",breaks=c(1,2,4))
-  m1 <-  glm(death ~ cb + CDD + CDN+ CDA + UDD + UDN+ UDA + ns(Year, df = 4)+ ns(Week, df = 3)+ geo  +log(pop),
-             family = quasipoisson(link="log"), data = d1, na.action="na.exclude")
-  saveRDS(m1,paste0(outdir,"/stratamodel_win",d1$window[1],"_",d1$age[1],"_ns_hum95th_",min(d1$Year),"_",max(d1$Year),".rds"))
-  cof = crosspred(cb,m1,by=1)
-  cof = data.frame(coef(cof))
-  cof$id = rownames(cof)
-  return(cof)
-}
-
-modelval_tem = function(d1){
-  lag <- 4
-  lagnk <-2
-  cb= crossbasis(d1$tem,
-                 lag=lag,
-                 argvar = list(fun="ns",knots =  quantile(data$tem,c(80)/100,na.rm=T), 
-                               Boundary.knots = range(data$tem,na.rm=T)),
-                 arglag= list(knots = logknots(lag, lagnk)),
-                 group = d1$gender_group)
-  
-  CDD = onebasis(d1$CHD_95th_tem,fun="strata",breaks=c(1,2,4))
-  CDN = onebasis(d1$CHN_95th_tem,fun="strata",breaks=c(1,2,4))
-  CDA = onebasis(d1$CH_95th_tem,fun="strata",breaks=c(1,2,4))
-  UDD = onebasis(d1$Heatday_95th_tem-d1$CHD_95th_tem,fun="strata",breaks=c(1,2,4))
-  UDN = onebasis(d1$Heatnight_95th_tem - d1$CHN_95th_tem,fun="strata",breaks=c(1,2,4))
-  UDA = onebasis(d1$Heatall_95th_tem - d1$CH_95th_tem,fun="strata",breaks=c(1,2,4))
-  m1 <-  glm(death ~ cb + CDD + CDN+ CDA + UDD + UDN+ UDA + ns(Year, df = 4)+ ns(Week, df = 3)+ geo +log(pop),
-             family = quasipoisson(link="log"), data = d1, na.action="na.exclude")
-  saveRDS(m1,paste0(outdir,"/stratamodel_win",d1$window[1],"_",d1$age[1],"_ns_tem95th_",min(d1$Year),"_",max(d1$Year),".rds"))
-  
-  cof = crosspred(cb,m1,by=1)
-  cof = data.frame(coef(cof))
-  cof$id = rownames(cof)
-  return(cof)
-}
-
-indata = fread(file.path(indir,paste0("Input_data_window14.csv")))
+indata = fread(file.path(indir,paste0("Input_data_all_v2.csv")))
 filter_list<- filter_geo(indata$geo)
-
 pop = pop[age_group!="TOTAL",]
 indata= indata[indata$geo %in% filter_list, ]
 indata =indata[age!="TOTAL",]
-indata = indata[complete.cases(indata),]
 indata = merge(indata,pop,
                by.x = c("Year","geo","age"),
                by.y = c("Year","geo","age_group"))
-indata$death_rate = indata$death/indata$pop*10000
-
-
-humlist = lapply(split(indata,indata$age),function(data){
-  data$death_rate[which(data$death_rate==0)]=0.000001
-  data$age = as.factor(data$age)
-  data$gender_group = paste(data$geo,data$Year)
-  d1= data[Year>=2010&Year<=2014,]
-  cof3 = modelval(d1)
-  d2= data[Year>=2015&Year<=2019,]
-  cof4 = modelval(d2)
-  
-  colnames(cof3)[1] = "Y1"
-  colnames(cof4)[1] = "Y2"
-  
-  cof = merge(cof3,cof4,by = "id")
-  RMSE = sqrt(sum((cof$Y1-cof$Y2)^2)/nrow(cof))
-  MADs = abs(sum(cof$Y1-cof$Y2)/nrow(cof))
-  k= data.frame(age = unique(data$age),RMSE = RMSE, MADs = MADs)
-  print(paste("Hum-",data$age[1],": RMSE=",RMSE,"MADs=",MADs))
-  cof$age =  unique(data$age)
-  
-  return(cof)
-})
-
-templist = lapply(split(indata,indata$age),function(data){
-  data$death_rate[which(data$death_rate==0)]=0.000001
-  data$age = as.factor(data$age)
-  data$gender_group = paste(data$geo,data$Year)
-  d1= data[Year>=2010&Year<=2014,]
-  cof3 = modelval_tem(d1)
-  d2= data[Year>=2015&Year<=2019,]
-  cof4 = modelval_tem(d2)
-  
-  colnames(cof3)[1] = "Y1"
-  colnames(cof4)[1] = "Y2"
-  
-  cof = merge(cof3,cof4,by = "id")
-  
-  RMSE = sqrt(sum((cof$Y1-cof$Y2)^2)/nrow(cof))
-  MADs = abs(sum(cof$Y1-cof$Y2)/nrow(cof))
-  k= data.frame(age = unique(data$age),RMSE = RMSE, MADs = MADs)
-  print(paste("TEM-",data$age[1],": RMSE=",RMSE,"MADs=",MADs))
-  cof$age =  unique(data$age)
-  return(cof)
-})
-t1 = do.call(rbind,templist)
-fwrite(t1,"Result/robutness_validation_tem.csv",row.names = F)
-h1 = do.call(rbind,humlist)
-fwrite(h1,"Result/robutness_validation_hum.csv",row.names = F)
-t1 = fread("Result/robutness_validation_tem.csv",stringsAsFactors = F)
-h1 = fread("Result/robutness_validation_hum.csv",stringsAsFactors = F)
-t1$var = "temp"
-h1$var = "hum"
-all = rbind(t1,h1)
-
-
+indata = indata[complete.cases(indata),]
+indata = indata[pop>0]
 
 R2<-function(x,y){
   xm<-mean(x)
@@ -176,8 +57,6 @@ bootstrap_validation = function(d1, n_bootstrap){
   lag <- 4
   lagnk <-2
   results <- list()
-  d1 = d1[!is.na(d1$death_rate),]
-
   for (i in 1:n_bootstrap) {
     
     max_repeats <- 30 # 最大重复次数
@@ -224,12 +103,12 @@ bootstrap_validation = function(d1, n_bootstrap){
       }
     }
     
-    CDD = onebasis(d1_bootstrap$CHD_95th,fun="strata",breaks=c(1,2,4))
-    CDN = onebasis(d1_bootstrap$CHN_95th,fun="strata",breaks=c(1,2,4))
-    CDA = onebasis(d1_bootstrap$CH_95th,fun="strata",breaks=c(1,2,4))
-    UDD = onebasis(d1_bootstrap$Heatday_95th-d1_bootstrap$CHD_95th,fun="strata",breaks=c(1,2,4))
-    UDN = onebasis(d1_bootstrap$Heatnight_95th - d1_bootstrap$CHN_95th,fun="strata",breaks=c(1,2,4))
-    UDA = onebasis(d1_bootstrap$Heatall_95th - d1_bootstrap$CH_95th,fun="strata",breaks=c(1,2,4))
+    CDD = onebasis(d1_bootstrap$CHD,fun="strata",breaks=c(1,2,4))
+    CDN = onebasis(d1_bootstrap$CHN,fun="strata",breaks=c(1,2,4))
+    CDA = onebasis(d1_bootstrap$CH,fun="strata",breaks=c(1,2,4))
+    UDD = onebasis(d1_bootstrap$Heatday-d1_bootstrap$CHD,fun="strata",breaks=c(1,2,4))
+    UDN = onebasis(d1_bootstrap$Heatnight - d1_bootstrap$CHN,fun="strata",breaks=c(1,2,4))
+    UDA = onebasis(d1_bootstrap$Heatall - d1_bootstrap$CH,fun="strata",breaks=c(1,2,4))
     m1 <-  glm(death~ cb + CDD + CDN+ CDA + UDD + UDN+ UDA + ns(Year, df = 4)+ ns(Week, df = 3)+ geo +log(pop),
                family = quasipoisson(link="log"), data = d1_bootstrap, na.action="na.exclude")
     
@@ -248,7 +127,7 @@ bootstrap_validation_temp = function(d1, n_bootstrap){
   lag <- 4
   lagnk <-2
   results <- list()
- # d1 = d1[!is.na(d1$death_rate),]
+  # d1 = d1[!is.na(d1$death_rate),]
   for (i in 1:n_bootstrap) {
     # 创建自助样本
     print("Sampling start:")
@@ -273,10 +152,10 @@ bootstrap_validation_temp = function(d1, n_bootstrap){
       
       # 尝试生成 crossbasis，如果出错则重新采样
       cb <- tryCatch({
-        crossbasis(d1_bootstrap$Hum,
+        crossbasis(d1_bootstrap$tem,
                    lag = lag,
-                   argvar = list(fun = "ns", knots = quantile(d1_bootstrap$Hum, c(80) / 100, na.rm = T), 
-                                 Boundary.knots = range(d1_bootstrap$Hum, na.rm = T)),
+                   argvar = list(fun = "ns", knots = quantile(d1_bootstrap$tem, c(80) / 100, na.rm = T), 
+                                 Boundary.knots = range(d1_bootstrap$tem, na.rm = T)),
                    arglag = list(knots = logknots(lag, lagnk)),
                    group = d1_bootstrap$gender_group)
       }, error = function(e) {
@@ -298,12 +177,12 @@ bootstrap_validation_temp = function(d1, n_bootstrap){
     }
     
     
-    CDD = onebasis(d1_bootstrap$CHD_95th_tem,fun="strata",breaks=c(1,2,4))
-    CDN = onebasis(d1_bootstrap$CHN_95th_tem,fun="strata",breaks=c(1,2,4))
-    CDA = onebasis(d1_bootstrap$CH_95th_tem,fun="strata",breaks=c(1,2,4))
-    UDD = onebasis(d1_bootstrap$Heatday_95th_tem-d1_bootstrap$CHD_95th_tem,fun="strata",breaks=c(1,2,4))
-    UDN = onebasis(d1_bootstrap$Heatnight_95th_tem - d1_bootstrap$CHN_95th_tem,fun="strata",breaks=c(1,2,4))
-    UDA = onebasis(d1_bootstrap$Heatall_95th_tem - d1_bootstrap$CH_95th_tem,fun="strata",breaks=c(1,2,4))
+    CDD = onebasis(d1_bootstrap$CHD_tem,fun="strata",breaks=c(1,2,4))
+    CDN = onebasis(d1_bootstrap$CHN_tem,fun="strata",breaks=c(1,2,4))
+    CDA = onebasis(d1_bootstrap$CH_tem,fun="strata",breaks=c(1,2,4))
+    UDD = onebasis(d1_bootstrap$Heatday_tem-d1_bootstrap$CHD_tem,fun="strata",breaks=c(1,2,4))
+    UDN = onebasis(d1_bootstrap$Heatnight_tem - d1_bootstrap$CHN_tem,fun="strata",breaks=c(1,2,4))
+    UDA = onebasis(d1_bootstrap$Heatall_tem - d1_bootstrap$CH_tem,fun="strata",breaks=c(1,2,4))
     m1 <-  glm(death~ cb + CDD + CDN+ CDA + UDD + UDN+ UDA + ns(Year, df = 4)+ ns(Week, df = 3)+ geo +log(pop),
                family = quasipoisson(link="log"), data = d1_bootstrap, na.action="na.exclude")
     
@@ -320,7 +199,6 @@ bootstrap_validation_temp = function(d1, n_bootstrap){
 }
 
 humlist = lapply (split(indata,indata$age),function(data){
-  data$death_rate[which(data$death_rate==0)]=0.000001
   data$age = as.factor(data$age)
   data$gender_group = paste(data$geo,data$Year)
   d1= data[Year>=2010&Year<=2019,]
@@ -389,7 +267,6 @@ p <-ggplot(ball)+geom_boxplot(aes(x=variable,y=value,color = var),
 
 
 ggsave(paste0(outdir,"/Boostval_compariation.pdf"),p, width=16, height=12, units="cm", scale=1)
-
 ggsave(paste0(outdir,"/Boostval_compariation.jpg"),p, width=16, height=12, units="cm", scale=1)
 
 indata%>%group_by(age)%>%summarise(mean = mean(death))
