@@ -2,20 +2,19 @@
 
 ## Overview
 
-Provide a brief description of your project, its objectives, and the problems it addresses.
+Provide a brief description of your project, its objectives, and the problems it addresses. The latest version is in the ‘main-code-version3’ branch.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Usage](#usage)
 - [Data Processing](#data-processing)
-  - [Daynight Data Calculation](#daynight-data-calculation)
+  - [Day-Night Data Calculation](#day-night-data-calculation)
   - [Heat Threshold Calculation](#heat-threshold-calculation)
   - [Data Preprocessing](#data-preprocessing)
 - [Population Data Handling](#population-data-handling)
 - [Modeling](#modeling)
-  - [DLNM Model Training](#dlnm-model-training)
-  - [Sensitivity Analysis](#sensitivity-analysis)
+  - [DLNM Model Training and Sensitivity Analysis](#dlnm-model-training-and-sensitivity-analysis)
   - [Model Validation](#model-validation)
 - [Prediction and Analysis](#prediction-and-analysis)
   - [Historical Data Prediction](#historical-data-prediction)
@@ -24,7 +23,6 @@ Provide a brief description of your project, its objectives, and the problems it
 - [Figures and Visualization](#figures-and-visualization)
 - [Contributing](#contributing)
 - [License](#license)
-
 ## Installation
 
 Detail the steps required to install your project, including any dependencies or prerequisites.
@@ -41,7 +39,7 @@ Explain how to calculate day and night durations based on sunrise and sunset tim
 
 ### Heat Threshold Calculation
 
-Describe the method for computing heat thresholds over 10, 15, and 30-day sliding windows, using historical data to determine the 90th, 95th, and 99th percentiles as extreme heat thresholds. Refer to the `heat_threshold_calculation.R` script for implementation details.
+Describe the method for computing health-related heat thresholds. Refer to the `Local_heat_thershold.R` script for implementation details.
 
 ### Data Preprocessing
 
@@ -53,13 +51,9 @@ Address the approach for handling missing Level 3 population data prior to 2014 
 
 ## Modeling
 
-### DLNM Model Training
+### DLNM Model Training and Sensitivity Analysis
 
-Discuss the training of the Distributed Lag Non-Linear Model (DLNM) for various age groups, highlighting the use of natural splines. The primary model training code is available in `DLNM_model_agegroup_ns.R`, with additional sensitivity analyses in files with similar prefixes.
-
-### Sensitivity Analysis
-
-Describe the sensitivity analyses conducted using different high-temperature threshold windows, as detailed in the `sensitivity_analysis_window.R` script.
+Discuss the training of the Distributed Lag Non-Linear Model (DLNM) for various age groups, highlighting the use of natural splines. The primary model training code is available in `DLNM_model_agegroup.R`, with additional sensitivity analyses in files with similar prefixes, like "DLNM_model_agegroup_**.R".
 
 ### Model Validation
 
@@ -71,9 +65,9 @@ Explain the methods employed to validate the model's performance, referencing th
 
 Present the use of Humidex and temperature data to predict heat-related mortality from 2010 to 2022, utilizing scripts like `heat_mortality_predicted_history.R` and `heat_mortality_predicted_history_temp.R`.
 
-### Future Data Prediction
+### Future Data Prediction with and witout adaptation
 
-Elaborate on forecasting heat-related mortality from 2023 to 2100 using projected Humidex values, as outlined in `heat_mortality_predicted_future.R`.
+Elaborate on forecasting heat-related mortality from 2023 to 2100 under no-adaptation assumption using projected Humidex values, as outlined in `heat_mortality_predicted_future.R`. Also, you can project future heat-related mortality under diverse physiological-socioeconomic adaptation scenarios using 'Future_mortality_projection_withadaptation.R'
 
 ### Heat-Related Mortality Distinction
 
@@ -81,6 +75,6 @@ Clarify the criteria for differentiating between moderate and extreme heat-relat
 
 ## Figures and Visualization
 
-Indicate the scripts used to generate figures included in your manuscript, such as `Figure_1a-c.R`, `Figure_1d.R`, `Figure_2.R`, and `Figure_3.R`, and describe how to interpret these visualizations.
+Indicate the scripts used to generate figures included in your manuscript, such as `Figure_1a-c.R`, `Figure_1d.R`, `Figure_2.R`, `Figure_3.R`, and `Figure_5.R`, and describe how to interpret these visualizations.
 
 
